@@ -4,6 +4,7 @@ import threading
 import yt_dlp
 import tkinter.font as tkfont
 from tkinter import filedialog
+import os
 
 class YouTubeDownloaderApp:
     def __init__(self, root):
@@ -61,6 +62,9 @@ class YouTubeDownloaderApp:
         file_menu.add_command(label="Choose Destination Folder", command=self.open_preferences)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=root.quit)
+
+        # Initialize the Download Folder
+        self.download_folder = os.path.expanduser("~")
 
     def open_preferences(self):
         folder_selected = filedialog.askdirectory(initialdir='.', title="Select Download Folder")
@@ -164,7 +168,7 @@ class YouTubeDownloaderApp:
         ydl_opts = {
             'format': f"{video_format_id}+bestaudio",
             'noplaylist': True,
-            'outtmpl': '%(title)s.%(ext)s',
+            'outtmpl': os.path.join(self.download_folder, '%(title)s.%(ext)s'),  # Download folder path
             'merge_output_format': 'mp4',
             'progress_hooks': [self.progress_hook],
             'quiet': True,
