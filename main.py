@@ -5,12 +5,14 @@ import yt_dlp
 import tkinter.font as tkfont
 from tkinter import filedialog
 import os
+import urllib.request
+from PIL import Image, ImageTk  # Ensure Pillow is installed: pip install pillow
 
 class YouTubeDownloaderApp:
     def __init__(self, root):
         self.root = root
         root.title("YouTube Downloader")
-        root.geometry("650x520")
+        root.geometry("650x600")
         root.minsize(650, 520)
 
         # Set ttk styles for better appearance
@@ -50,6 +52,16 @@ class YouTubeDownloaderApp:
         self.formats = []
         self.all_formats = []
 
+        # Initialize the Download Folder
+        self.download_folder = os.path.expanduser("~")
+
+        # Setup thumbnail cache directory for history thumbnails
+        self.thumbnail_cache_dir = os.path.join(os.getcwd(), 'thumbnails')
+        os.makedirs(self.thumbnail_cache_dir, exist_ok=True)
+
+        # History data list
+        self.history = []
+
         # Create the menu bar
         menu_bar = tk.Menu(root)
         root.config(menu=menu_bar)
@@ -60,14 +72,13 @@ class YouTubeDownloaderApp:
 
         # Add Preferences option
         file_menu.add_command(label="Choose Destination Folder", command=self.open_preferences)
+        # Add History option
+        file_menu.add_command(label="History", command=self.open_history)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=root.quit)
 
-        # Initialize the Download Folder
-        self.download_folder = os.path.expanduser("~")
-
     def open_preferences(self):
-        folder_selected = filedialog.askdirectory(initialdir='.', title="Select Download Folder")
+        folder_selected = filedialog.askdirectory(initialdir=self.download_folder, title="Select Download Folder")
         if folder_selected:
             self.download_folder = folder_selected
             messagebox.showinfo("Preferences", f"Download folder set to:\n{self.download_folder}")
@@ -78,7 +89,6 @@ class YouTubeDownloaderApp:
             messagebox.showerror("Error", "Please enter a YouTube URL.")
             return
 
-        # Disable controls during fetch
         self.fetch_btn.config(state='disabled')
         self.url_entry.config(state='disabled')
         self.clear_quality_options()
@@ -89,7 +99,6 @@ class YouTubeDownloaderApp:
         self.loading_bar.pack(pady=5)
         self.loading_bar.start()
 
-        # Start background thread to fetch formats
         threading.Thread(target=self._fetch_formats_thread, args=(url,), daemon=True).start()
 
     def _fetch_formats_thread(self, url):
@@ -100,9 +109,8 @@ class YouTubeDownloaderApp:
                 info = ydl.extract_info(url, download=False)
 
             formats = info.get('formats', [])
-            self.all_formats = formats  # store all formats for reference
+            self.all_formats = formats
 
-            # Filter mp4 formats with format_note, no duplicates on (height, format_note)
             seen = set()
             filtered_formats = []
             for f in formats:
@@ -142,20 +150,17 @@ class YouTubeDownloaderApp:
         label = ttk.Label(self.quality_frame, text="Select quality to download:", font=('Segoe UI', 11, 'bold'))
         label.pack(pady=(0, 12))
 
-        # Centered buttons with horizontal padding to constrain width
         for i, fmt in enumerate(self.formats):
             btn_label = f"{fmt['height']}p - {fmt.get('format_note', 'N/A')}"
             btn = ttk.Button(self.quality_frame, text=btn_label, command=lambda i=i: self.start_download(i))
             btn.pack(fill='x', pady=5, padx=150)
 
     def start_download(self, index):
-        # Disable controls during download
         for widget in self.quality_frame.winfo_children():
             widget.config(state='disabled')
         self.fetch_btn.config(state='disabled')
         self.url_entry.config(state='disabled')
 
-        # Show and reset progress bar
         self.download_progress.pack(pady=5)
         self.download_progress['value'] = 0
 
@@ -168,14 +173,36 @@ class YouTubeDownloaderApp:
         ydl_opts = {
             'format': f"{video_format_id}+bestaudio",
             'noplaylist': True,
-            'outtmpl': os.path.join(self.download_folder, '%(title)s.%(ext)s'),  # Download folder path
+            'outtmpl': os.path.join(self.download_folder, '%(title)s.%(ext)s'),
             'merge_output_format': 'mp4',
             'progress_hooks': [self.progress_hook],
             'quiet': True,
         }
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
+                info = ydl.extract_info(url, download=True)
+            title = info.get('title')
+            thumbnail_url = info.get('thumbnail')
+            filepath = ydl.prepare_filename(info)
+            filesize = os.path.getsize(filepath)
+
+            thumbnail_path = ''
+            if thumbnail_url:
+                video_id = info.get('id')
+                thumbnail_path = os.path.join(self.thumbnail_cache_dir, f"{video_id}.jpg")
+                if not os.path.exists(thumbnail_path):
+                    try:
+                        urllib.request.urlretrieve(thumbnail_url, thumbnail_path)
+                    except Exception:
+                        thumbnail_path = ''
+
+            self.history.append({
+                'url': url,
+                'title': title,
+                'filesize': filesize,
+                'thumbnail_path': thumbnail_path
+            })
+
             self.root.after(0, lambda: messagebox.showinfo("Success", "Download completed!"))
         except Exception as e:
             self.root.after(0, lambda: messagebox.showerror("Error", f"Download failed:\n{e}"))
@@ -200,6 +227,71 @@ class YouTubeDownloaderApp:
         for widget in self.quality_frame.winfo_children():
             widget.config(state='normal')
 
+    def open_history(self):
+        if not self.history:
+            messagebox.showinfo("History", "No download history available.")
+            return
+
+        history_win = tk.Toplevel(self.root)
+        history_win.title("Download History")
+        history_win.geometry("500x400")
+
+        canvas = tk.Canvas(history_win, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(history_win, orient="vertical", command=canvas.yview)
+        scroll_frame = ttk.Frame(canvas)
+
+        scroll_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+
+        canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Store references so images are not garbage collected
+        self._history_images = []
+
+        def copy_url_factory(url):
+            def copy_url(event):
+                self.root.clipboard_clear()
+                self.root.clipboard_append(url)
+                messagebox.showinfo("Copied", "Video URL copied to clipboard!")
+            return copy_url
+
+        for record in self.history:
+            frame = ttk.Frame(scroll_frame, padding=5, relief='ridge')
+            frame.pack(fill='x', pady=2, padx=2)
+
+            try:
+                if record['thumbnail_path'] and os.path.exists(record['thumbnail_path']):
+                    img = Image.open(record['thumbnail_path'])
+                    img.thumbnail((80, 45))
+                    photo = ImageTk.PhotoImage(img)
+                else:
+                    photo = None
+            except Exception:
+                photo = None
+
+            if photo:
+                label_img = ttk.Label(frame, image=photo)
+                label_img.image = photo
+                label_img.pack(side="left", padx=5)
+                self._history_images.append(photo)
+
+            text_frame = ttk.Frame(frame)
+            text_frame.pack(side="left", fill="x", expand=True)
+
+            title_label = ttk.Label(text_frame, text=record['title'], font=('Segoe UI', 10, 'bold'))
+            title_label.pack(anchor='w')
+
+            size_mb = record['filesize'] / (1024 * 1024)
+            size_label = ttk.Label(text_frame, text=f"Size: {size_mb:.2f} MB", font=('Segoe UI', 9))
+            size_label.pack(anchor='w')
+
+            # Bind click event to copy URL
+            frame.bind("<Button-1>", copy_url_factory(record['url']))
+            for child in frame.winfo_children():
+                child.bind("<Button-1>", copy_url_factory(record['url']))
 
 if __name__ == "__main__":
     root = tk.Tk()
