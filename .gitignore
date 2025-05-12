@@ -5,3 +5,4 @@
 /dist
 main.spec
 /thumbnails
+.gitignore
