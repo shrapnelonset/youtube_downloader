@@ -1,3 +1,6 @@
 .venv
 *.log
 *.logs
+/build
+/dist
+main.spec

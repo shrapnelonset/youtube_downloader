@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox
 import threading
 import yt_dlp
 import tkinter.font as tkfont
+from tkinter import filedialog
 
 class YouTubeDownloaderApp:
     def __init__(self, root):
@@ -47,6 +48,25 @@ class YouTubeDownloaderApp:
 
         self.formats = []
         self.all_formats = []
+
+        # Create the menu bar
+        menu_bar = tk.Menu(root)
+        root.config(menu=menu_bar)
+
+        # Create the File menu
+        file_menu = tk.Menu(menu_bar, tearoff=0)
+        menu_bar.add_cascade(label="File", menu=file_menu)
+
+        # Add Preferences option
+        file_menu.add_command(label="Choose Destination Folder", command=self.open_preferences)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=root.quit)
+
+    def open_preferences(self):
+        folder_selected = filedialog.askdirectory(initialdir='.', title="Select Download Folder")
+        if folder_selected:
+            self.download_folder = folder_selected
+            messagebox.showinfo("Preferences", f"Download folder set to:\n{self.download_folder}")
 
     def fetch_qualities(self):
         url = self.url_var.get().strip()
