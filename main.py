@@ -1,12 +1,16 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
-import yt_dlp
 import tkinter.font as tkfont
 from tkinter import filedialog
 import os
 import urllib.request
-from PIL import Image, ImageTk  # Ensure Pillow is installed: pip install pillow
+
+# pip install yt_dlp
+import yt_dlp
+
+# pip install pillow
+from PIL import Image, ImageTk
 
 class YouTubeDownloaderApp:
     def __init__(self, root):
