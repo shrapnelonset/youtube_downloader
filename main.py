@@ -26,14 +26,14 @@ class YouTubeDownloaderApp:
         # URL input frame
         url_frame = ttk.Frame(root, padding=15)
         url_frame.pack(fill='x')
-        ttk.Label(url_frame, text="YouTube URL:").pack(side='left')
+        ttk.Label(url_frame, text="YouTube URL").pack(side='top')
         self.url_var = tk.StringVar()
         self.url_entry = ttk.Entry(url_frame, textvariable=self.url_var, font=('Segoe UI', 10))
         self.url_entry.pack(side='left', fill='x', expand=True, padx=(10, 0))
 
         # Fetch qualities button
-        self.fetch_btn = ttk.Button(root, text="Get Video Formats", width=25, command=self.fetch_qualities)
-        self.fetch_btn.pack(pady=(0, 15))
+        self.fetch_btn = ttk.Button(root, text="Get Video Formats", width=20, command=self.fetch_qualities)
+        self.fetch_btn.pack(pady=(15, 15))
 
         # Loading bar (hidden initially)
         self.loading_bar = ttk.Progressbar(root, mode='indeterminate')
@@ -71,7 +71,7 @@ class YouTubeDownloaderApp:
         menu_bar.add_cascade(label="File", menu=file_menu)
 
         # Add Preferences option
-        file_menu.add_command(label="Choose Destination Folder", command=self.open_preferences)
+        file_menu.add_command(label="Destination Folder", command=self.open_preferences)
         # Add History option
         file_menu.add_command(label="History", command=self.open_history)
         file_menu.add_separator()
